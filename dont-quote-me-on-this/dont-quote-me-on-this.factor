@@ -53,13 +53,20 @@ DEFER: (parse-unescaped-whitespace)
     (until-whitespace) >pathname ;
 : (~/) ( -- pathname )
     "~/" (until-whitespace) append >pathname ;
+: (/) ( -- pathname )
+    "/" (until-whitespace) append >pathname ;
 
+SYNTAX: // (/) suffix! ;
 SYNTAX: .// (./) suffix! ;
 
 SYNTAX: ~// (~/) suffix! ;
 
 SYNTAX: <.// (./) suffix! utf8 suffix! [ read-lines ] suffix! \ with-file-reader suffix! ;
+SYNTAX: <~// (~/) suffix! utf8 suffix! [ read-lines ] suffix! \ with-file-reader suffix! ;
+SYNTAX: <// (/) suffix! utf8 suffix! [ read-lines ] suffix! \ with-file-reader suffix! ;
 SYNTAX: [<.// (./) suffix! utf8 suffix! \ ] parse-until >quotation suffix! \ with-file-reader suffix! ;
+SYNTAX: [<// (/) suffix! utf8 suffix! \ ] parse-until >quotation suffix! \ with-file-reader suffix! ;
+SYNTAX: [<~// (~/) suffix! utf8 suffix! \ ] parse-until >quotation suffix! \ with-file-reader suffix! ;
 
 : assumptive-write ( lines -- )
     dup sequence? [ [ present ] map ] [ present 1array ] if write-lines ;
@@ -68,6 +75,17 @@ SYNTAX: >>.// (./) suffix! utf8 suffix! [ assumptive-write ] suffix! \ with-file
 SYNTAX: [>.// (./) suffix! utf8 suffix! \ ] parse-until >quotation suffix! \ with-file-writer suffix! ;
 SYNTAX: [>>.// (./) suffix! utf8 suffix! \ ] parse-until >quotation suffix! \ with-file-appender suffix! ;
 
+SYNTAX: >~// (~/) suffix! utf8 suffix! [ assumptive-write ] suffix! \ with-file-writer suffix! ;
+SYNTAX: >>~// (~/) suffix! utf8 suffix! [ assumptive-write ] suffix! \ with-file-appender suffix! ;
+SYNTAX: [>~// (~/) suffix! utf8 suffix! \ ] parse-until >quotation suffix! \ with-file-writer suffix! ;
+SYNTAX: [>>~// (~/) suffix! utf8 suffix! \ ] parse-until >quotation suffix! \ with-file-appender suffix! ;
+
+SYNTAX: >// (/) suffix! utf8 suffix! [ assumptive-write ] suffix! \ with-file-writer suffix! ;
+SYNTAX: >>// (/) suffix! utf8 suffix! [ assumptive-write ] suffix! \ with-file-appender suffix! ;
+SYNTAX: [>// (/) suffix! utf8 suffix! \ ] parse-until >quotation suffix! \ with-file-writer suffix! ;
+SYNTAX: [>>// (/) suffix! utf8 suffix! \ ] parse-until >quotation suffix! \ with-file-appender suffix! ;
+
+SYNTAX: [// (/) suffix! \ ] parse-until >quotation suffix! \ with-directory suffix! ;
 SYNTAX: [.// (./) suffix! \ ] parse-until >quotation suffix! \ with-directory suffix! ;
 SYNTAX: [~// (~/) suffix! \ ] parse-until >quotation suffix! \ with-directory suffix! ;
 
@@ -76,6 +94,7 @@ SYNTAX: https:// (until-whitespace) resolve-host suffix! ;
 IN: tools.completion
 
 : complete-to-whitespace? ( tokens -- ? )
+    
     first [ "//" subseq-of? ] [ CHAR: " swap in? not ] bi and ;
 
 USE: tools.completion.private
@@ -98,6 +117,12 @@ IN: tools.completion
     [ drop "./" ] unless directory-paths completions ;
 : paths-matching ( str -- seq )
     ?paths-match-head
-    CHAR: ~ over in? [ "~/" ] [ "./" ] if [ [ (paths-matching) ] 2dip 
-    '[ [ [ _ prepend ] dip ] assoc-map ] when ] with-directory ;
+    {
+        { [ CHAR: ~ over in? ] [ "~/" ] }
+        { [ dup "//" = ] [ "/" ] }
+        [ "./" ]
+    } cond
+    [ [ (paths-matching) ] 2dip 
+      '[ [ [ _ prepend ] dip ] assoc-map ] when
+    ] with-directory ;
 

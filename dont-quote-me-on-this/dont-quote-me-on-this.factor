@@ -56,7 +56,7 @@ DEFER: (parse-unescaped-whitespace)
 
 SYNTAX: .// (./) suffix! ;
 
-SYNTAX: ~// lexer get skip-blank parse-to-whitespace >pathname absolute-path suffix! ;
+SYNTAX: ~// (~/) suffix! ;
 
 SYNTAX: <.// (./) suffix! utf8 suffix! [ read-lines ] suffix! \ with-file-reader suffix! ;
 SYNTAX: [<.// (./) suffix! utf8 suffix! \ ] parse-until >quotation suffix! \ with-file-reader suffix! ;
@@ -76,7 +76,7 @@ SYNTAX: https:// (until-whitespace) resolve-host suffix! ;
 IN: tools.completion
 
 : complete-to-whitespace? ( tokens -- ? )
-    first ".//" head? ; ! fixme: what about { ~// <.// [>.//... } variants, need to maintain head when string is replaced on selection
+    first [ "//" subseq-of? ] [ CHAR: " swap in? not ] bi and ;
 
 USE: tools.completion.private
 
@@ -84,17 +84,20 @@ USE: tools.completion.private
     [ "P\"" complete-string? ] [ complete-to-whitespace? ] bi or ;
 
 IN: tools.completion
-: ?paths-match-head ( str -- str head ? )
+: ?paths-match-head ( str -- str ? head )
     {
-        { [ dup "P\"" head? ] [ "P\"" length cut t rot ] }
-        { [ dup ".//" head? ] [ ".//" length cut t rot ] }
-        [ "" f ]
-    } cond ;
+        { [ dup "P\"" [ head? ] [ length ] bi and ] [ cut t rot ] }
+        { [ dup "//" subseq-index ] [ 2 + cut t rot ] }
+        [ f "" ]
+    } cond* ;
+
+: (paths-matching) ( str -- seq )
+    dup last-path-separator [ 1 + cut ] [ drop "" ] if swap
+    dup { [ file-exists? ] [ file-info directory? ] } 1&&
+    ! complete given path else assume working directory
+    [ drop "./" ] unless directory-paths completions ;
 : paths-matching ( str -- seq )
-    ?paths-match-head [
-        dup last-path-separator [ 1 + cut ] [ drop "" ] if swap
-        dup { [ file-exists? ] [ file-info directory? ] } 1&&
-        ! complete given path else assume working directory
-        [ directory-paths completions ] [ drop "./" directory-paths completions ] if
-    ] 2dip '[ [ [ _ prepend ] dip ] assoc-map ] when ;
+    ?paths-match-head
+    CHAR: ~ over in? [ "~/" ] [ "./" ] if [ [ (paths-matching) ] 2dip 
+    '[ [ [ _ prepend ] dip ] assoc-map ] when ] with-directory ;
 

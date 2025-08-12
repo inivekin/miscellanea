@@ -30,7 +30,9 @@ SINGLETONS: diversion knot stitch choice-block ;
      
 
 : trim-equals ( str -- str' ) [ [ CHAR: = = ] [ " " = ] bi or ] trim-tail ;
+: trim-space ( str -- str' ) [ 32 = ] trim-tail ;
 
+! choiceblock = (choicemarker (spaces?)~ ( ( choicetext | diversion ) (spaces?)~ (choicemarker) (spaces?)~ )+ (spaces?)~)+ => [[ first first2 concat swap prefix but-last choice-block swap 2array ]]
 EBNF: tokenize [=[
 
 tokenizer = default
@@ -42,14 +44,14 @@ choicemarker = ( "*" | "+" )
 
 notspace = (!(space) .)*
 
-content_line= . (!("\n") .)+ => [[ first2 >string swap prefix ]]
-choicetext= . (!("\n" | choicemarker) .)+ => [[ first2 >string swap prefix ]]
-choiceblock = (choicemarker (spaces?)~ ( ( choicetext | diversion ) (spaces?)~ (choicemarker?) (spaces?)~ )+ (spaces?)~)+ => [[ first first2 concat swap prefix but-last choice-block swap 2array ]]
+diversion= "->"~ " "? notspace => [[ last >string trim-equals diversion swap 2array ]]
+content_line= . (!("\n" | choicemarker | "->") .)+ diversion? => [[ first3 [ >string trim-space swap prefix ] [ 2array ] bi* ]]
+choicetext= . (!("\n" | choicemarker | "->" ) .)+ diversion? => [[ first3 [ >string trim-space swap prefix ] [ 2array ] bi* ]]
+choiceblock = (choicemarker (spaces?)~ ( choicetext | diversion ) (spaces?)~ )+ => [[ choice-block swap 2array ]]
 knotname= "==="~ " "? notspace => [[ last >string trim-equals knot swap 2array ]]
 knot= knotname
 stitchname= "="~ " "? notspace => [[ last >string trim-equals stitch swap 2array ]]
 stitch= stitchname
-diversion= "->"~ " "? notspace => [[ last >string trim-equals diversion swap 2array ]]
 
 story = ((spaces?)~ ( knot | stitch | diversion | choiceblock | content_line ))*
 
